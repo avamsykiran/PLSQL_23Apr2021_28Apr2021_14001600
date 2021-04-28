@@ -1,0 +1,531 @@
+
+Instead-of Trigger
+
+* These triggers are defined on relation-views and object-views. These triggers are used to modify views that cannot be directly modified by DML commands.
+* Unlike normal triggers, which are fired during the execution of DML commands, these triggers are fired instead of execution of DML commands.
+* That means instead of executing DML command on the view, Oracle invokes the corresponding INSTEAD-OF trigger.
+
+create or replace view employee_details
+as
+select job_id, job_title, employee_id, first_name
+from employees
+natural join
+jobs;
+
+update employee_details
+set job_title = 'IT Programmer' 
+where job_id = 'IT_PROG';
+
+ORA-01779: cannot modify a column which maps to a non key-preserved table
+
+program-40:
+create or replace trigger it_employee_details_update
+instead of 
+update on employee_details
+begin
+    update employees
+    set  first_name = :new.first_name
+    where employee_id = :new.employee_id;
+
+    update jobs
+    set job_title = :new.job_title
+    where job_id = :new.job_id;
+end;
+
+testing:
+
+update employee_details
+set job_title = 'IT Programmer', first_name = 'Brain'
+where employee_id = 104;
+
+----------------------------------------------------------------------------------------------------------------------------------------
+
+Enabling and Disabling Triggers:
+
+i) alter trigger trg_employees_sunday disable;
+
+ii) alter table employees disable all triggers;
+
+
+Dropping Trigger:
+
+drop trigger triggername;
+--------------------------------------------------------------------------------------------------------------------------------------
+
+Returning Cursor From A Function
+(using REF CURSOR)
+
+program-41:
+create or replace package funpack
+is
+   type curtype is REF CURSOR return employees%rowtype;
+   function empcursor(p_department_id employees.department_id%type) 
+   return curtype;
+end funpack;
+
+create or replace package body funpack
+is
+   function empcursor(p_department_id employees.department_id%type) return curtype
+   is
+     rows  curtype;
+   begin
+     open rows for select * from employees where department_id = p_department_id;
+     return rows;
+   end empcursor;
+end    funpack;
+
+executing at SQL*Plus prompt:
+
+sql> variable c refcursor;
+sql> execute :c := funpack.empcursor(10);
+sql> print c
+
+PL/SQL Tables:
+
+program-42:
+
+declare
+   type T_EMP is table of employees%rowtype
+   index by binary_integer;
+   
+   cursor  c_emp
+   is
+   select * from employees;
+
+   v_emp T_EMP;
+   ctr  number:=1;
+begin
+   for  i  in  c_emp
+   loop
+        select * into v_emp(ctr)
+        from employees
+        where employee_id = i.employee_id;
+        ctr := ctr+1;
+   end  loop;
+   for i in 1..v_emp.count
+   loop
+        dbms_output.put_line(v_emp(i).employee_id || ' - ' || v_emp(i).first_name);
+   end loop;
+end;
+
+
+DBMS_SQL package: (Dynamic SQL) - [Oracle Supplied Package]
+
+program-43:	
+(Example of DESCRIBE_COLUMNS procedure)
+
+declare
+    c number;
+    col_cnt number;
+    rec_tab dbms_sql.desc_tab;
+begin
+    c := dbms_sql.open_cursor;
+    
+    dbms_sql.parse(c, 'select * from employees', dbms_sql.native); 
+    
+    dbms_sql.describe_columns(c, col_cnt, rec_tab);
+    for i in 1..rec_tab.count
+    loop
+    dbms_output.put_line(rec_tab(i).col_name || ' - ' || rec_tab(i).col_type);
+    end loop;
+    dbms_sql.close_cursor(c);
+end;
+
+--------------------------------------------------------------------------------------------------------------------------------------
+
+Program-44:
+
+create or replace function gen_pkey_chk
+(p_table_name    IN    varchar2, p_col_name    IN     varchar2, p_col_value    IN    varchar2)
+return number
+as
+    cursor_handle            integer;
+    execute_feedback   integer;
+begin
+    cursor_handle := dbms_sql.open_cursor;
+    dbms_sql.parse(cursor_handle, 'select ' || p_col_name || ' from ' || p_table_name || ' where ' || p_col_name || ' = ''' || p_col_value || '''', dbms_sql.v7); 
+    execute_feedback := dbms_sql.execute(cursor_handle);
+    if  dbms_sql.fetch_rows(cursor_handle) = 0 then
+       dbms_sql.close_cursor(cursor_handle);
+       return 0;
+    else
+       dbms_sql.close_cursor(cursor_handle);
+       return 1;
+    end if;
+end;
+
+Program-45: (testing the above program)
+
+declare
+     rows_found  number;
+begin
+     rows_found := gen_pkey_chk('&table_name', '&column_name', '&column_value');
+
+     if rows_found = 0 then
+        dbms_output.put_line('The column value is unique');
+     else
+        dbms_output.put_line('The column value is NOT unique');
+     end if;
+end;
+
+--------------------------------------------------------------------------------------------------------------------------------------
+Program-46:
+(Program to drop any object - pass the object type and object name as parameters)
+
+create or replace procedure drop_object (type_in  varchar2, name_in  varchar2)
+is
+   /* Declare and create a cursor to use for the dynamic SQL */
+   cur pls_integer := dbms_sql.open_cursor;
+   fdbk pls_integer;
+begin
+   /* Construct the SQL statement, parse it and execute it. */
+   dbms_sql.parse(cur, 'drop ' || type_in || ' ' || name_in, dbms_sql.native);
+   fdbk := dbms_sql.execute(cur); 
+   dbms_sql.close_cursor(cur);
+end;
+
+
+testing:
+
+create table test (n number(2));
+
+create view testview as select * from test;
+
+begin
+drop_object('TABLE', 'TEST');
+end;
+
+begin
+drop_object('VIEW','TESTVIEW');
+end;
+
+Program-47:
+(Program to drop objects - pass the object type and object name include wild cards as parameters)
+
+create or replace procedure drop_object_proc
+(p_type_in  IN  varchar2,    p_name_in    IN   varchar2)
+is
+     cursor   obj_cur 
+     is
+     select object_name, object_type
+     from  user_objects
+     where object_name like upper(p_name_in) 
+     and  object_type like upper(p_type_in)
+     order by object_name;
+
+     cursor_handle  integer;
+begin
+     for obj_rec in obj_cur
+     loop
+          cursor_handle := dbms_sql.open_cursor;
+          dbms_sql.parse(cursor_handle, 'drop ' || obj_rec.object_type || ' ' || obj_rec.object_name, DBMS_SQL.V7);
+          dbms_sql.close_cursor(cursor_handle);
+     end  loop;
+end;
+
+testing the above program:
+
+begin
+   drop_object_proc('TABLE', 'X%');
+end;
+
+   
+Native Dynamic SQL	DBMS_SQL
+Easy to use and concise.	Often long-winded and awkward.
+PL/SQL interpreter has built in support for Native Dynamic SQL so it is more efficient than DBMS_SQL.	DBMS_SQL uses a Procedural API so it is generally slower than Native Dynamic SQL.
+Supports user defined types.	Does not support user defined types.
+Supports FETCH INTO record types	Does not support FETCH INTO record types
+Not supported in client site code.	Supported in client side code.
+Does not support DESCRIBE_COLUMNS	Supports DESCRIBE_COLUMNS
+Does not support bulk Dynamic SQL, but it can be faked by placing all statements in a PL/SQL block.	Supports bulk Dynamic SQL.
+Only supports Single row Updates/Deletes with RETURNING clause.	Supports Single and Multiple row Updates/Deletes with RETURNING clause.
+Does not support SQL statements bigger than 32K	Does support SQL statements bigger than 32K
+Parse required for every execution	Parse once, execute many possible
+
+
+
+Native Dynamic SQL:
+
+* Dynamic SQL is used in PL/SQL when complete SQL statement to be executed is not known at the time of writing program.
+* It is also used to execute commands that are not supported by Static SQL in PL/SQL such as DDL commands.
+* PL/SQL provides native commands to execute dynamic SQL.
+
+Execute Immediate statement:
+It is used to execute the given SQL command.
+
+syntax:
+EXECUTE     IMMEDIATE    sqlcommand;
+
+program-48:
+
+begin
+  execute immediate 'create table costly_employees as select * from employees where salary between 10000 and 15000';
+end;
+
+program-49:
+
+begin
+  execute immediate 'drop table costly_employees';
+end;
+
+-----------------------------------------------------------------------------------------------------------------------------------
+Execute a Non-Query with parameters:
+A parameter represents a missing value. It is denoted by a : (colon) followed by a name. All parameters used in SQL command must be replaced by values USING clause.
+
+syntax:
+EXECUTE     IMMEDIATE    sqlcommand    USING    parameters;
+
+
+program-50:
+(Execute a non-query with parameters)
+
+create or replace procedure delete_table  (p_table_name     varchar)
+is
+     cmd   varchar(100);
+begin
+    cmd := 'drop table ' || p_table_name;
+
+    execute immediate cmd;
+end;
+
+testing:
+create table xyz (n1 number(2), n2 number(2));
+
+begin
+    delete_table ('xyz');
+end;
+
+-------------------------------------------------------------------------------------------------------------------------------
+
+program-51:
+
+create or replace function rowcount(p_table_name varchar)
+return number
+is
+   cnt  number(5);
+begin
+   execute immediate 'select count(*) from ' || p_table_name into cnt;
+   return cnt;
+end;
+
+testing:
+select rowcount('employees') from dual;
+
+
+program-52:
+
+create or replace function columncount(p_table_name varchar)
+return number
+is
+   cnt  number(5);
+begin
+   execute immediate 'select count(*) from user_tab_columns where table_name = ''' || p_table_name || '''' into cnt;
+   return cnt;
+end;
+
+testing:
+
+select columncount('EMPLOYEES') from dual;
+select columncount('JOBS') from dual;
+
+
+program-53:
+create or replace function objcount(p_obj_type  varchar)
+return number
+is
+   cnt  number(5);
+begin
+   execute immediate 'select count(*) from (select * from user_objects where object_type = ''' || p_obj_type || ''')' into cnt;
+   return cnt;
+end;
+
+testing:
+
+select objcount('TABLE') from dual;
+select objcount('VIEW') from dual;   
+---------------------------------------------------------------------------------------------------------------------------------------
+
+PL/SQL Security:
+
+create table clientmaster
+(clientno varchar2(4),
+ baldue   number(6)
+);
+
+insert into clientmaster values ('c001',1000);
+insert into clientmaster values ('c002',2000);
+insert into clientmaster values ('c003',3000);
+insert into clientmaster values ('c004',4000);
+
+program-54:
+
+declare
+   p_balamt        hr.clientmaster.baldue%type;
+   p_transamt     hr.clientmaster.baldue%type;
+   p_clientno      hr.clientmaster.clientno%type;
+   p_transtype    char(1);
+
+   RESOURCE_BUSY     EXCEPTION;
+   PRAGMA   EXCEPTION_INIT(RESOURCE_BUSY, -00054);
+begin
+   p_transamt := &transaction_amount;
+   p_clientno := &client_no;
+   p_transtype := &transaction_type;
+
+   select baldue into p_balamt
+   from hr.clientmaster
+   where clientno = p_clientno
+   FOR  UPDATE  NOWAIT;
+
+  if p_transtype = 'D' then
+      update  hr.clientmaster set baldue = baldue + p_transamt
+      where clientno = p_clientno;
+  elsif     p_transtype = 'W' then
+      update  hr.clientmaster set baldue = baldue - p_transamt
+      where clientno = p_clientno;
+  end if;
+exception
+   when  RESOURCE_BUSY then
+     dbms_output.put_line('The row is in use by another user');
+end;
+/
+
+run the above program in two sql command line windows by logging into 2 different users.
+
+remove the NOWAIT clause and run the above program in 2 windows as 2 different users.
+
+
+
+Collectors:
+
+Collectors are of sets if elements that are treated as part of single row.
+
+a) VARRAYS - Varying Arrays
+
+* Collectors such as Varrays allow you to repeat only those column values that change, potentially saving storage space. 
+* Varray is an array with varying length
+* It can contain zero or more elements
+* An attribute of an object type can be defined as of type Varray.
+* The maximum number of elements is specified at the time of creating the data type.
+* we should limit varrying arrays to one column.
+* If we need to use multiple columns in array, using nested tables.
+
+create type phones_va 
+as varray(10) of number(10);
+
+create table newpublishers
+(name      varchar(20),
+ address  varchar(100),
+ phones   phones_va
+);
+
+desc phones_va
+
+select type_name, coll_type, upper_bound
+from user_coll_types
+where type_name = 'PHONES_VA';
+
+insert into newpublishers
+values ('WROX', 'US', phones_va(111111, 222222));
+
+update newpublishers
+set phones = phones_va(111111, 222222, 333333)
+where name = 'WROX';
+
+select    phone
+from       newpublishers;
+(work in sql*plus command prompt)
+
+
+PL/SQL program to display varray:
+
+program-55:
+
+declare
+    cursor  pubcursor
+    is
+    select    *
+    from       newpublishers;
+
+    pubrec    pubcursor%rowtype;
+
+begin
+    for  pubrec  in  pubcursor
+    loop
+        dbms_output.put_line('Name : ' || pubrec.name);
+        for i in 1..pubrec.phones.count
+        loop
+            dbms_output.put_line(pubrec.phones(i));
+        end  loop;
+   end  loop;
+end;
+
+
+b) Nested Tables
+
+* A table within another table is called "Nested Table".
+* Nested table can have unlimited number of rows.
+* Individual rows in a nested table can be modified.
+
+
+create   type  phones_nt
+as
+table of varchar(30);
+
+create   table  ntpublishers
+(name       varchar(20),
+ address   varchar(100),
+ phones    phones_nt
+) nested  table  phones  store  as  phones_tab;
+
+insert    into  ntpublishers
+values  ('BPB', 'New Delhi', phones_nt('111111', '222222'));
+
+Oracle allows data in the nested table to be easily manipulated. The only requirement is to convert nested table to normal table using TABLE keyword.
+
+select *
+from table (select phones from ntpublishers where name = 'BPB');
+
+insert   into  table (select phones from ntpublishers where name = 'BPB') 
+values ('333333');
+
+update  table  (select  phones from ntpublishers where name = 'BPB')    P
+set  VALUE(P) = '123456' where  VALUE(P) = '111111';
+
+
+PL/SQL program to display NestedTables:
+
+program-56:
+
+declare
+    cursor  pubcursor
+    is
+    select    *
+    from       ntpublishers;
+
+    pubrec    pubcursor%rowtype;
+
+begin
+    for  pubrec  in  pubcursor
+    loop
+        dbms_output.put_line('Name : ' || pubrec.name);
+        for i in 1..pubrec.phones.count
+        loop
+            dbms_output.put_line(pubrec.phones(i));
+        end  loop;
+   end  loop;
+end;
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   END  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+
+
+
+
+
+
+
+
+
+

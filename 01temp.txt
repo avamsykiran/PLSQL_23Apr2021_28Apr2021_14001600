@@ -1,0 +1,148 @@
+
+program-27:
+
+create or replace procedure p1 (n1 number:=1, n2 number:=2, n3 number:=3)
+is
+begin
+      dbms_output.put_line(n1);
+      dbms_output.put_line(n2);
+      dbms_output.put_line(n3);
+end;
+
+executing:
+begin
+	p1 (10,20,30);		-- positional
+	p1 (n2 =>20, n3=>30);	-- named
+	p1 (10, n3=>10);		-- mixed
+end;
+
+
+program-28:
+(parameter types)
+
+create or replace procedure get_min_max_salary
+(p_job_id in varchar,
+ p_minsalary out number,
+ p_maxsalary out number)
+is
+begin
+ select min(salary), max(salary)
+ into p_minsalary, p_maxsalary
+ from employees
+ where job_id = p_job_id;
+end;
+
+program-29:
+declare
+  minsalary employees.salary%type;
+  maxsalary employees.salary%type;
+begin
+  get_min_max_salary('IT_PROG',minsalary,maxsalary);
+  dbms_output.put_line('Min. Salary = ' || minsalary || ' - Max. Salary = ' || maxsalary);
+end;
+
+-------------------------------------------------------------------------------------------------------------------------------------
+
+-------------------------------------------------------------------------------------------------------------------------------------
+program-30:	(Stored Functions)
+
+create or replace function getname
+(p_employee_id  employees.employee_id%type)
+return employees.first_name%type
+is
+	v_first_name	employees.first_name%type;
+begin
+	select	first_name
+	into	v_first_name
+	from	employees
+	where	employee_id = p_employee_id;
+	return	v_first_name;
+exception
+        when  no_data_found  then
+             return 'Employee Not Found';
+end;
+/
+
+executing:
+select getname(100) from dual;
+
+
+
+program-32:	(Packages)
+
+
+
+------------------------------------------------------------------------------------------------------------------
+
+
+
+program-33:	(Database Triggers)
+
+
+
+program-34:	(Database Triggers)
+create or replace trigger trg_employees_sunday
+before insert or update or delete
+on employees
+begin
+  if  to_char(sysdate, 'd') = 1 then
+      raise_application_error (-20200, 'No changes can be made on sunday');
+  end  if;
+end;
+
+program-35:	(Database Triggers)
+
+create  or  replace  trigger emp999trig
+before  insert  or  update  or   delete
+on      emp999
+for  each  row
+declare
+   op  char(1);
+begin
+   if  inserting  then
+      op := 'I';
+   elsif  updating then
+      op := 'U';
+   else
+      op := 'D';
+   end if;
+   insert into auditemp999
+   values (:old.empno, :old.ename, sysdate, op, :old.basic, :new.basic, user);
+end;
+/
+------------------------------------------------------------------------------------------------------------------
+program-36:	(Database Triggers)
+	
+create or replace trigger ucasetrig
+before insert or update
+on emp999
+for each row
+begin
+   :new.ename := upper(:new.ename);
+end;
+/
+------------------------------------------------------------------------------------------------------------------
+program-37:	(Database Triggers)
+
+-- trigger to reject updations and deletions on a table
+
+
+------------------------------------------------------------------------------------------------------------------
+program-38:	(Database Triggers)
+
+-- trigger to generate autoincrement of primary column
+
+create or replace trigger autopk
+before insert
+on emp888
+for each row
+declare
+    pk_value     emp888.empno%type;
+begin
+    select nvl(max(empno),0)
+    into pk_value
+    from   emp888;
+
+    :new.empno := pk_value+1;
+end;
+

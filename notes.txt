@@ -1,0 +1,343 @@
+LabSetUp
+
+        Oracle 11g or later 
+
+        Notepad
+
+------------------------------------------------------------
+
+PL/SQL
+
+        Procedural Language extended for SQL.
+
+                        OLTP
+
+        PL/SQL Block
+        Cursor
+        Procedure
+        Function
+        Trigger
+        Exception Handle
+        Packages
+        Advanced PLSQL Features.
+
+        DB  <---------->   BackEndApp(MS)    <-------------> Andriod
+                                        <-------------------> Angular
+                                            <---------------> IOT
+
+            Gaurd Against Injection attacks.
+            Report Generation
+
+    
+        ===============================================================================================
+          PL/SQL Block
+
+                declare
+                    //all declarations or inititialization
+                begin
+                    //DRL/DML operations
+                    //with flow control statmeents
+
+                exception
+                    //exception handling
+                end;
+
+
+                operators
+                -----------------------------------------------
+
+                    SQL Relational and Logicla Oeprtors.
+
+                    :=  assignment operator
+
+                    :variable_name -----------------> bind variable.
+
+                Control Structures
+                -------------------------------
+
+                    Selective
+
+                        if cond then
+                            ..................
+                        end if;
+
+
+                        if cond then
+                            ...............
+                        elsif cond then
+                            ..................
+                        else
+                            ..............
+                        end if;
+
+
+                        case statmeents; 
+
+                    Iterative
+
+                        loop until cond
+                            ..................
+                        next;
+
+                        for var := start..end
+                            .............................
+                        nexy;
+
+                    NonConditional
+
+                        RAISE
+
+
+                    Data type
+                    ------------------------------
+
+                      var_name datatype;
+
+                      var_name table1.col1%type;
+
+                      var_name table1%rowtype;
+
+                      cursor    are a collection of records that can be accessed sequentially.
+
+                    Select into
+                    ----------------------------------------------------
+
+                        select col1,col2,col3 from table;
+
+                        select col1,col2,col3 into var1,var2,var3 from table1;
+
+                        var_emp employees%rowtype;
+
+                        select * into var_emp from employees where empid=2;
+
+
+EXCEPTION HANDLING:
+==========================================================================
+SQLCODE - return oracle error number for the current error
+SQLERRM - return message associated to the error.
+
+pre-defined exceptions:
+
+DUP_VAL_INDEX, INVALID_CURSOR, INVALID_NUMBER, NO_DATA_FOUND,
+TOO_MANY_ROWS, VALUE_ERROR, ZERO_DIVIDE
+
+Exceptions are 3 types:
+1) Named System Exceptions
+2) UnNamed System Exceptions
+3) User Defined Exceptions
+
+            RAISE is used to raise a user defiend exception.
+
+4) raise_aaplication_error(err_number,err_msg)
+        raising suer defined exception 
+        from stored procedure or functions.
+
+errornumber must be in the range -20001 and -20999.
+CURSORS
+==========================================================================
+
+        is a temporary collection of records.
+        are only one-way / progressively accessible.
+
+        CUSOR ATTRIBUTES
+        ------------------------------
+            %FOUND
+            %NOTFOUND
+            %ISOPEN
+            %ROWCOUNT
+
+        implicit cursor:
+        ---------------------------------------------------------------------
+            * implicit cursor is opened by the database to process 
+                each SQL statement when a DML operation happens
+            * it is accessed using name 'SQL'.
+        
+        expicit cursor:
+        ---------------------------------------------------------------------
+            cursor cursor_name is select statement.....
+
+    LOCKS
+    ---------------------------------------------------------------------------
+
+        The FOR UPDATE clause:
+
+            SELECT   columnlist
+            FROM	tablename
+            FOR    UPDATE [OF  column_reference]  [NOWAIT];
+
+            * Explicit locking allows you to deny access 
+                or the duration of a transaction.
+            * Lock the rows before the update or delete.
+            * The NOWAIT keyword tells oracle not to wait if represented rows have been 
+                locked by another user. Control is immediately returned to the program so 
+                that it can do other work before trying again to acquire the lock.
+
+    Stored Pl/SQL Blocks
+    ========================================================================
+
+        Stored Procedure 
+
+                is a precompiled naemd pl/sql block.
+
+                create or repalce procName(paramList) is
+                    declaration block
+                begin
+                    procedure body....
+                end;
+
+        Function
+                is a precompiled naemd pl/sql block, 
+                that returns a single value.
+                functioncs can call in SQL 'select statement'
+
+            Advantages:
+            -----------------
+            a) Reduced Network Traffic 	- as name only passed from client to server
+            b) Better Performance 		-  as it is loaded and stays in memory so that 
+             subsequent invocations can make use of procedure in memory. 
+             Procedures are also stored in compiled format, which makes them run faster.
+            c) Easy Maintenance		- as a change of business logic needs only a change 
+            to procedure in the database. All client applications can immediately use 
+            new business logic.
+            d) Security				- as it is possible to grant privilege to users 
+            to execute procedure even though no privilege is granted on table,
+             there is no need to grant privileges on the table to others.
+
+
+        SHOW ERRORS     to display compilation erros.
+
+        execute procName(params);
+                
+        Getting Source Code:
+                select   text  
+                from     user_source
+                where  name = 'RAISESAL';
+
+        Getting list of all procedures in your account:
+
+                select object_name,object_type
+                from user_objects
+                where object_type='PROCEDURE';
+
+        removing procedures:
+
+                DROP   PROCEDURE     procedurename;
+
+        removing functions:
+
+                DROP   FUNCTION     functionname;
+
+        parameter modes:
+
+            a) IN:
+                The default
+                Passes a value to the subprogram
+                Formal parameter acts like a constant
+                Formal parameter cannot be assigned a value
+                Actual parameter can be a constant, Initialized variable, Literal or expression.
+            b) OUT:
+                Must be specified
+                Returns a value to the caller
+                Formal parameter acts like an uninitialized variable
+                Formal parameter must be assigned a value
+                Actual parameter must be a variable.
+            c) IN OUT:
+                Must be specified
+                Passes an initial value to the sub program and returns an updated 
+                value to the caller
+                Formal parameter acts like an uninitialized variable
+                Formal parameter must be assigned a value
+                Actual parameter must be a variable.
+
+            parameter notations:
+            a) positional:
+                    specify the same parameters in the same order as the procedure declares them.
+            b) Named:
+                    specify the name and value of each parameter, using the association 
+                    operator =>.
+                    order of parameters are insignificant.
+            c) Mixed:
+                    Start with positional notation, then use named notation for the remaining parameters.
+
+    Packages
+    ========================================================================
+            Oracles Approach For Modularization
+
+            A package has two components (SPECIFICATION + BODY)
+
+            Package SPECIFICATION
+            ---------------------------------------------------------
+                create or replace package packName
+                is
+                    procedure procName(params);
+                    function  funcName(params) return	returnType;
+                end packName;		
+
+
+            Package body
+            ---------------------------------------------------------
+                create or replace package body packName
+                is
+                     procedure procName(params)
+                    is
+                      --declarations
+                    begin
+                      --implementation
+                    end;
+                    
+                    function  funcName(params) return	returnType
+                    is
+                        --declarations
+                    begin
+                       --implementation
+                    end;
+                end packName;
+
+
+            To check all packages:
+                    select *
+                    from user_objects
+                    where object_type = 'PACKAGE';
+            
+            Removing Packages:
+
+                DROP   PACKAGE    packagename;
+
+                DROP   PACKAGE    BODY   packagename;
+
+    Database Triggers:
+    ========================================================================
+  
+        It is a PL/SQL block that is executed on an event in the database. 
+        The event is related to a particular data manipulation of a table such as inserting, 
+        deleting or updating a row of a table.
+
+        Triggers may be used for any of the following ....
+        * To implement complex business rule, which cannot be 
+        implemented using integrity constraints.
+        * To audit the process.
+        * To automatically perform an action when another concerned action takes place.
+
+        Types of triggers:
+        a) Row-Level Trigger		-	fires once for each row
+        b) Statement-Level Trigger	-	fired only once for a DML statement
+        c) Before Triggers			-	we can decide whether the trigger is to be 
+                                        fired before the insert/update/delete is executed 
+                                        or after the command is executed.
+        d) After Triggers			-	These are fired after the triggering action is completed.
+
+        syntax:
+
+        CREATE	[OR	REPLACE]	TRIGGER		triggername
+        [BEFORE / AFTER]
+        [DELETE  / INSERT / UPDATE   [OF  columns] ]
+        ON	table
+        [FOR	EACH	ROW	[WHEN   condition] ]
+        PL/SQL block
+
+        valid statements in trigger body:
+
+        * DML statements
+        * SELECT   INTO   command
+
+        Correlation Names: 		-	:NEW and :OLD
